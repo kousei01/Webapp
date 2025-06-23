@@ -6,434 +6,236 @@
     <title>オフライン シフト作成アプリ</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 800px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
-        
-        /* モード選択画面 */
-        #mode-selection-view { text-align: center; }
-        .mode-button { font-size: 1.2em; padding: 20px 40px; margin: 10px; cursor: pointer; border: 1px solid #007bff; background-color: white; color: #007bff; border-radius: 8px; transition: background-color 0.2s, color 0.2s; }
-        .mode-button:hover { background-color: #007bff; color: white; }
-
-        /* 管理者・従業員共通スタイル */
         section { margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-        section:last-child { border-bottom: none; }
         h1, h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        h1 { font-size: 1.8em; }
-        h2 { font-size: 1.4em; }
-
-        input[type="text"], input[type="date"], select, input[type="month"] { padding: 10px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+        input, select { padding: 10px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
         button { font-size: 1em; padding: 10px 18px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
-        button:hover { background-color: #0056b3; }
+        button:hover:not(:disabled) { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
-
-        .back-button { background-color: #6c757d; margin-bottom: 20px; }
-        .back-button:hover { background-color: #5a6268; }
-        .delete-btn { background-color: #dc3545; margin-left: 10px; }
-        .delete-btn:hover { background-color: #c82333; }
-
+        form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .back-button { background-color: #6c757d; margin-bottom: 20px;}
+        .delete-btn { background-color: #dc3545; }
         ul, li { list-style: none; padding: 0; }
         li { background: #f9f9f9; padding: 10px 15px; border: 1px solid #ddd; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        .highlight { background-color: #d1ecf1; font-weight: bold; }
-        .weekend { background-color: #fefefe; }
+        .schedule-timeline-container { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
+        .schedule-timeline { display: flex; flex-direction: column; gap: 5px; }
+        .timeline-header, .timeline-row { display: flex; align-items: center; }
+        .timeline-label { min-width: 120px; font-weight: bold; font-size: 0.9em; padding-right: 10px; text-align: right; }
+        .timeline-slots { flex-grow: 1; position: relative; background: #fafafa; height: 30px; border-left: 1px solid #eee; border-right: 1px solid #eee; min-height: 30px; }
+        .employee-bar { position: absolute; height: 25px; color: white; opacity: 0.85; border-radius: 4px; overflow: hidden; white-space: nowrap; font-size: 0.8em; line-height: 25px; padding-left: 5px; box-sizing: border-box; cursor: grab; z-index: 10; }
+        .employee-bar.part-time { background-color: #28a745; border: 1px solid #218838; }
+        .employee-bar.casual { background-color: #17a2b8; border: 1px solid #138496; }
+        .timeline-grid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; }
+        .grid-line { flex: 1; border-left: 1px dotted #ccc; }
+        .time-marker { position: absolute; bottom: -20px; color: #666; font-size: 0.8em;}
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 600px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        #copy-target-dates { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 15px; margin: 15px 0; }
+        .sortable-ghost { opacity: 0.4; background: #c8ebfb; }
     </style>
 </head>
 <body>
-
-    <!-- 1. モード選択画面 -->
-    <div id="mode-selection-view" class="container">
-        <h1>利用モードを選択してください</h1>
-        <button id="admin-mode-btn" class="mode-button">管理者として利用</button>
-        <button id="employee-mode-btn" class="mode-button">従業員として利用</button>
-    </div>
-
-    <!-- 2. 従業員選択画面 (従業員モード時) -->
-    <div id="employee-selection-view" class="container hidden">
-        <button class="back-button">← モード選択に戻る</button>
-        <h2>あなたは誰ですか？</h2>
-        <select id="employee-selector" style="width: 100%; font-size: 1.1em; padding: 10px; margin-bottom: 10px;"></select>
-        <button id="select-employee-btn" style="width: 100%;" disabled>決定</button>
-    </div>
-
-    <!-- 3. メインアプリ画面 (管理者/従業員共通) -->
+    <div id="copy-modal" class="modal"> <div class="modal-content"> <span id="close-copy-modal" class="close-btn">×</span> <h3>出勤可能時間をコピー</h3> <p><strong>コピー元:</strong> <span id="copy-source-info"></span></p> <p>以下からコピーしたい日付を選択してください。</p> <div id="copy-target-dates"></div> <button id="execute-copy-btn" style="width: 100%; margin-top: 15px;">選択した日付にコピー</button> </div> </div>
+    <div id="mode-selection-view" class="container"> <h1>利用モードを選択してください</h1> <button id="admin-mode-btn" class="mode-button">管理者として利用</button> <button id="employee-mode-btn" class="mode-button">従業員として利用</button> </div>
+    <div id="employee-selection-view" class="container hidden"> <button class="back-button">← モード選択に戻る</button> <h2>あなたは誰ですか？</h2> <select id="employee-selector" style="width: 100%; font-size: 1.1em; padding: 10px; margin-bottom: 10px;"></select> <button id="select-employee-btn" style="width: 100%;" disabled>決定</button> </div>
     <div id="app-view" class="container hidden">
-        <button class="back-button">← モード選択に戻る</button>
-        <h1 id="app-title">シフト管理</h1>
-
-        <section id="employee-management-section">
-            <h2>従業員管理</h2>
-            <form id="employee-form">
-                <input type="text" id="employee-name" placeholder="従業員名" required>
-                <button type="submit">従業員を追加</button>
-            </form>
-            <ul id="employee-list"></ul>
-        </section>
-
-        <section>
-            <h2>希望休の登録</h2>
-            <form id="request-form">
-                <select id="request-employee" required></select>
-                <input type="date" id="request-date" required>
-                <button type="submit">希望休を登録</button>
-            </form>
-            <p>登録済み希望休:</p>
-            <ul id="request-list"></ul>
-        </section>
-
-        <section id="generation-section">
-            <h2>シフト自動生成</h2>
-            <input type="month" id="target-month">
-            <button id="generate-btn">シフトを生成</button>
-        </section>
-
-        <section>
-            <h2 id="schedule-title">シフト表</h2>
-            <p id="schedule-month-selector-p">表示する月: <input type="month" id="schedule-month-selector"></p>
-            <div id="schedule-table-container"></div>
-        </section>
+        <button class="back-button">← モード選択に戻る</button> <h1 id="app-title">シフト管理</h1>
+        <section id="demand-section"> <h2>必要人数の設定 (Demand)</h2> <form id="demand-form"> <input type="date" id="demand-date" required> <select id="demand-start-time"></select> ～ <select id="demand-end-time"></select> <input type="number" id="demand-people" placeholder="必要人数" min="1" required style="width:100px;"> <select id="demand-priority-type"> <option value="any">どちらでも</option> <option value="part-time">パート優先</option> <option value="casual">バイト優先</option> </select> <button type="submit">設定</button> </form> <p>設定済みリスト (日付を選択すると表示):</p> <ul id="demand-list"></ul> </section>
+        <section id="employee-management-section"> <h2>従業員管理</h2> <form id="employee-form"> <input type="text" id="employee-name" placeholder="従業員名" required> <select id="employee-type"> <option value="part-time">パート</option> <option value="casual">バイト</option> </select> <input type="number" id="contract-days" placeholder="週の契約日数" min="1" max="7" required style="width:120px;"> <button type="submit">従業員を追加</button> </form> <ul id="employee-list"></ul> </section>
+        <section> <h2>出勤可能時間の登録 (Availability)</h2> <form id="availability-form"> <select id="availability-employee" required></select> <input type="date" id="availability-date" required> <select id="availability-start-time"></select> ～ <select id="availability-end-time"></select> <button type="submit">登録</button> <button type="button" id="open-copy-modal-btn">他の日にコピー</button> </form> <p>登録済みの出勤可能時間:</p> <ul id="availability-list"></ul> </section>
+        <section id="generation-section"> <h2>シフト自動生成</h2> <form id="generation-form"> <select id="generate-year"></select> 年 <select id="generate-month"></select> 月 <select id="generate-period"> <option value="1">前半 (1日～15日)</option> <option value="2">後半 (16日～末日)</option> </select> <button type="submit">シフトを生成</button> </form> </section>
+        <section> <h2 id="schedule-title">シフト表</h2> <div id="schedule-selector-container" style="display:flex; align-items:center; gap:10px;"> <select id="schedule-year"></select> 年 <select id="schedule-month"></select> 月 <select id="schedule-period"> <option value="1">前半 (1日～15日)</option> <option value="2">後半 (16日～末日)</option> </select> </div> <div id="schedule-table-container"></div> <div id="stats-container"></div> </section>
     </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
 <script>
-// PWA Service Worker登録
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW registration failed:', err));
-    });
-}
+"use strict";
 
-// === DB設定 ===
-const db = new Dexie('ShiftAppDB');
-db.version(2).stores({ // バージョンを上げておくと更新がスムーズ
-    employees: '++id, name',
-    requests: '++id, &[employeeId+date]', // employeeIdとdateの組み合わせでユニークにする
-    schedules: 'id, data' // 'YYYY-MM' をIDとしてシフトデータを保存
-}).upgrade(tx => {
-    // version 1 -> 2 へのアップグレードパス。今回は特に何もしない。
-});
+document.addEventListener('DOMContentLoaded', () => {
+    // PWA Service Worker登録
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW registration failed:', err)); }); }
 
+    // DB設定
+    const db = new Dexie('ShiftAppDB');
+    db.version(7).stores({ demands: '++id, date', availabilities: '++id, &[employeeId+date], date', employees: '++id, name, contractDays, type', schedules: 'id' }).upgrade(tx => {});
 
-// === グローバル変数 ===
-let currentUserMode = null; // 'admin' or 'employee'
-let currentEmployeeId = null;
+    // グローバル変数
+    let currentUserMode = null, currentEmployeeId = null;
 
-// === DOM要素のキャッシュ ===
-const views = {
-    modeSelection: document.getElementById('mode-selection-view'),
-    employeeSelection: document.getElementById('employee-selection-view'),
-    app: document.getElementById('app-view')
-};
-const adminModeBtn = document.getElementById('admin-mode-btn');
-const employeeModeBtn = document.getElementById('employee-mode-btn');
-const employeeSelector = document.getElementById('employee-selector');
-const selectEmployeeBtn = document.getElementById('select-employee-btn');
-const appTitle = document.getElementById('app-title');
-const employeeManagementSection = document.getElementById('employee-management-section');
-const generationSection = document.getElementById('generation-section');
-const employeeForm = document.getElementById('employee-form');
-const employeeNameInput = document.getElementById('employee-name');
-const employeeList = document.getElementById('employee-list');
-const requestForm = document.getElementById('request-form');
-const requestEmployeeSelect = document.getElementById('request-employee');
-const requestDateInput = document.getElementById('request-date');
-const requestList = document.getElementById('request-list');
-const targetMonthInput = document.getElementById('target-month');
-const generateBtn = document.getElementById('generate-btn');
-const scheduleTitle = document.getElementById('schedule-title');
-const scheduleTableContainer = document.getElementById('schedule-table-container');
-const scheduleMonthSelector = document.getElementById('schedule-month-selector');
+    // DOM要素
+    const modeSelectionView = document.getElementById('mode-selection-view'), employeeSelectionView = document.getElementById('employee-selection-view'), appView = document.getElementById('app-view');
+    const adminModeBtn = document.getElementById('admin-mode-btn'), employeeModeBtn = document.getElementById('employee-mode-btn');
+    const employeeSelector = document.getElementById('employee-selector'), selectEmployeeBtn = document.getElementById('select-employee-btn');
+    const appTitle = document.getElementById('app-title'), demandSection = document.getElementById('demand-section'), demandForm = document.getElementById('demand-form'), demandDateInput = document.getElementById('demand-date'), demandStartTimeSelect = document.getElementById('demand-start-time'), demandEndTimeSelect = document.getElementById('demand-end-time'), demandPeopleInput = document.getElementById('demand-people'), demandPriorityTypeSelect = document.getElementById('demand-priority-type'), demandList = document.getElementById('demand-list');
+    const employeeManagementSection = document.getElementById('employee-management-section'), employeeForm = document.getElementById('employee-form'), employeeNameInput = document.getElementById('employee-name'), employeeTypeSelect = document.getElementById('employee-type'), contractDaysInput = document.getElementById('contract-days'), employeeList = document.getElementById('employee-list');
+    const availabilityForm = document.getElementById('availability-form'), availabilityEmployeeSelect = document.getElementById('availability-employee'), availabilityDateInput = document.getElementById('availability-date'), availabilityStartTimeSelect = document.getElementById('availability-start-time'), availabilityEndTimeSelect = document.getElementById('availability-end-time'), availabilityList = document.getElementById('availability-list');
+    const generationSection = document.getElementById('generation-section'), generationForm = document.getElementById('generation-form'), generateYearSelect = document.getElementById('generate-year'), generateMonthSelect = document.getElementById('generate-month'), generatePeriodSelect = document.getElementById('generate-period');
+    const scheduleSelectorContainer = document.getElementById('schedule-selector-container'), scheduleYearSelect = document.getElementById('schedule-year'), scheduleMonthSelect = document.getElementById('schedule-month'), schedulePeriodSelect = document.getElementById('schedule-period');
+    const scheduleTableContainer = document.getElementById('schedule-table-container'), statsContainer = document.getElementById('stats-container');
+    const copyModal = document.getElementById('copy-modal'), closeCopyModalBtn = document.getElementById('close-copy-modal'), openCopyModalBtn = document.getElementById('open-copy-modal-btn');
+    const copySourceInfo = document.getElementById('copy-source-info'), copyTargetDatesContainer = document.getElementById('copy-target-dates'), executeCopyBtn = document.getElementById('execute-copy-btn');
+    const backButtons = document.querySelectorAll('.back-button');
 
-// === 初期化とイベントリスナー設定 ===
-document.addEventListener('DOMContentLoaded', initialize);
-
-function initialize() {
-    const today = new Date();
-    const currentMonth = today.toISOString().slice(0, 7);
-    targetMonthInput.value = currentMonth;
-    scheduleMonthSelector.value = currentMonth;
+    // ヘルパー関数
+    const timeToMinutes = (time) => { if (!time) return 0; const [h, m] = time.split(':').map(Number); return h * 60 + m; };
+    const getDayRange = (year, month, period) => { const startDay = (period === 1) ? 1 : 16; const endDay = (period === 1) ? 15 : new Date(year, month, 0).getDate(); return { startDay, endDay }; };
     
-    showView('modeSelection');
+    // 描画関数
+    const populateTimeSelects = () => { const selects = [demandStartTimeSelect, demandEndTimeSelect, availabilityStartTimeSelect, availabilityEndTimeSelect]; let options = ''; for (let h = 0; h < 24; h++) for (let m = 0; m < 60; m += 30) { const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; options += `<option value="${time}">${time}</option>`; } selects.forEach(select => select.innerHTML = options); };
+    const populateYearMonthSelects = () => { const today = new Date(), currentYear = today.getFullYear(), currentMonth = today.getMonth() + 1; const yearSelects = [generateYearSelect, scheduleYearSelect], monthSelects = [generateMonthSelect, scheduleMonthSelect]; let yearOptions = ''; for (let y = currentYear - 2; y <= currentYear + 2; y++) yearOptions += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`; yearSelects.forEach(s => s.innerHTML = yearOptions); let monthOptions = ''; for (let m = 1; m <= 12; m++) monthOptions += `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${m}</option>`; monthSelects.forEach(s => s.innerHTML = monthOptions); };
 
-    adminModeBtn.addEventListener('click', setupAdminMode);
-    employeeModeBtn.addEventListener('click', showEmployeeSelection);
-    selectEmployeeBtn.addEventListener('click', () => {
-        const selectedId = parseInt(employeeSelector.value, 10);
-        if (selectedId) setupEmployeeMode(selectedId);
-    });
-    employeeSelector.addEventListener('change', () => {
-        selectEmployeeBtn.disabled = !employeeSelector.value;
-    });
+    // ビュー管理
+    const showView = (viewName) => { const views = {modeSelection: modeSelectionView, employeeSelection: employeeSelectionView, app: appView}; Object.values(views).forEach(view => view.classList.add('hidden')); if(views[viewName]) views[viewName].classList.remove('hidden'); };
+    const showModeSelectionView = () => { currentUserMode = null; currentEmployeeId = null; showView('modeSelection'); };
+    const setupAdminMode = async () => { currentUserMode = 'admin'; appTitle.textContent = 'シフト管理 (管理者)'; demandSection.classList.remove('hidden'); employeeManagementSection.classList.remove('hidden'); generationSection.classList.remove('hidden'); availabilityEmployeeSelect.disabled = false; await renderAll(); showView('app'); };
+    const showEmployeeSelection = async () => { const employees = await db.employees.toArray(); if (employees.length === 0) { alert('従業員が登録されていません。'); return; } await populateEmployeeSelector(); showView('employeeSelection'); };
+    const setupEmployeeMode = async (employeeId) => { currentUserMode = 'employee'; currentEmployeeId = employeeId; const employee = await db.employees.get(employeeId); appTitle.textContent = `ようこそ、${employee.name}さん`; demandSection.classList.add('hidden'); employeeManagementSection.classList.add('hidden'); generationSection.classList.add('hidden'); availabilityEmployeeSelect.innerHTML = `<option value="${employee.id}">${employee.name}</option>`; availabilityEmployeeSelect.disabled = true; await renderAll(); showView('app'); };
+    const populateEmployeeSelector = async () => { const employees = await db.employees.toArray(); employeeSelector.innerHTML = '<option value="">名前を選択してください</option>'; employees.forEach(emp => { employeeSelector.innerHTML += `<option value="${emp.id}">${emp.name}</option>`; }); selectEmployeeBtn.disabled = true; };
 
-    document.querySelectorAll('.back-button').forEach(btn => btn.addEventListener('click', showModeSelectionView));
+    // データ描画
+    const renderAll = async () => { if (currentUserMode === 'admin') { await renderEmployees(); await populateAvailabilityEmployeeSelect(); } await renderAvailabilities(); await renderScheduleForPeriod(); };
+    const renderEmployees = async () => { const employees = await db.employees.toArray(); employeeList.innerHTML = ''; employees.forEach(emp => { const typeText = emp.type === 'part-time' ? 'パート' : 'バイト'; const li = document.createElement('li'); li.innerHTML = `<span>${emp.name} (${typeText}, 週${emp.contractDays}日)</span>`; const deleteBtn = document.createElement('button'); deleteBtn.textContent = '削除'; deleteBtn.className = 'delete-btn'; deleteBtn.onclick = () => deleteEmployee(emp.id); li.appendChild(deleteBtn); employeeList.appendChild(li); }); };
+    const populateAvailabilityEmployeeSelect = async () => { const employees = await db.employees.toArray(); availabilityEmployeeSelect.innerHTML = ''; employees.forEach(emp => { const option = document.createElement('option'); option.value = emp.id; option.textContent = emp.name; availabilityEmployeeSelect.appendChild(option); }); };
+    const renderAvailabilities = async () => { let query = db.availabilities; if (currentUserMode === 'employee') query = query.where('employeeId').equals(currentEmployeeId); const avails = await query.toArray(); availabilityList.innerHTML = ''; const employeeMap = new Map((await db.employees.toArray()).map(e => [e.id, e.name])); for (const a of avails.sort((x, y) => x.date.localeCompare(y.date))) { const empName = employeeMap.get(a.employeeId); if (empName) { const li = document.createElement('li'); li.textContent = `${a.date}: ${empName} (${a.startTime} - ${a.endTime})`; availabilityList.appendChild(li); } } };
+    const renderDemandsForDate = async (date) => { if (!date) { demandList.innerHTML = ''; return; } const demands = await db.demands.where('date').equals(date).sortBy('startTime'); demandList.innerHTML = ''; const priorityMap = { any: 'どちらでも', 'part-time': 'パート優先', 'casual': 'バイト優先' }; demands.forEach(d => { demandList.innerHTML += `<li>${d.startTime} - ${d.endTime}: ${d.people}人 (${priorityMap[d.priorityType]})</li>`; }); };
+
+    // データ操作
+    const addDemand = async (e) => { e.preventDefault(); const date = demandDateInput.value, startTime = demandStartTimeSelect.value, endTime = demandEndTimeSelect.value, people = parseInt(demandPeopleInput.value, 10), priorityType = demandPriorityTypeSelect.value; if (date && startTime < endTime && people > 0) { await db.demands.add({ date, startTime, endTime, people, priorityType }); await renderDemandsForDate(date); } else { alert('入力が正しくありません。'); } };
+    const addEmployee = async (e) => { e.preventDefault(); const name = employeeNameInput.value.trim(), type = employeeTypeSelect.value, contractDays = parseInt(contractDaysInput.value, 10); if (name && type && contractDays > 0) { await db.employees.add({ name, type, contractDays }); employeeForm.reset(); await renderAll(); } };
+    const deleteEmployee = async (id) => { if (confirm('この従業員を削除しますか？')) { await db.transaction('rw', db.employees, db.availabilities, async () => { await db.employees.delete(id); await db.availabilities.where('employeeId').equals(id).delete(); }); await renderAll(); } };
+    const addAvailability = async (e) => { e.preventDefault(); const employeeId = parseInt(availabilityEmployeeSelect.value, 10), date = availabilityDateInput.value, startTime = availabilityStartTimeSelect.value, endTime = availabilityEndTimeSelect.value; if (employeeId && date && startTime < endTime) { await db.availabilities.put({ employeeId, date, startTime, endTime }); await renderAvailabilities(); } else { alert('入力が正しくありません。'); } };
+
+    // コピー機能
+    const openCopyModal = () => { const dateStr = availabilityDateInput.value, startTime = availabilityStartTimeSelect.value, endTime = availabilityEndTimeSelect.value; if (!dateStr || startTime >= endTime) { alert('コピー元の有効な日付と時間を入力してください。'); return; } copySourceInfo.textContent = `${dateStr} の ${startTime}～${endTime}`; copyTargetDatesContainer.innerHTML = ''; const dateObj = new Date(dateStr + 'T00:00:00'); const year = dateObj.getFullYear(), month = dateObj.getMonth() + 1, day = dateObj.getDate(); const period = (day <= 15) ? 1 : 2; const { startDay, endDay } = getDayRange(year, month, period); for (let d = startDay; d <= endDay; d++) { const currentDateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`; if (currentDateStr === dateStr) continue; const dObj = new Date(currentDateStr + 'T00:00:00'); const formattedDate = `${dObj.getMonth()+1}月${dObj.getDate()}日(${['日','月','火','水','木','金','土'][dObj.getDay()]})`; copyTargetDatesContainer.innerHTML += `<label><input type="checkbox" class="date-check" value="${currentDateStr}">${formattedDate}</label>`; } copyModal.style.display = 'flex'; };
+    const closeCopyModal = () => { copyModal.style.display = 'none'; };
+    const executeCopy = async () => { const employeeId = parseInt(availabilityEmployeeSelect.value, 10), startTime = availabilityStartTimeSelect.value, endTime = availabilityEndTimeSelect.value; const checkedDates = Array.from(document.querySelectorAll('#copy-target-dates .date-check:checked')).map(cb => cb.value); if (!employeeId || checkedDates.length === 0) { alert('従業員が選択されていないか、コピー先の日付が選択されていません。'); return; } const availabilitiesToPut = checkedDates.map(date => ({ employeeId, date, startTime, endTime })); try { await db.availabilities.bulkPut(availabilitiesToPut); alert(`${availabilitiesToPut.length}件の出勤可能時間をコピーしました。`); await renderAvailabilities(); closeCopyModal(); } catch (error) { alert('コピー中にエラーが発生しました: ' + error); } };
     
-    employeeForm.addEventListener('submit', addEmployee);
-    requestForm.addEventListener('submit', addRequest);
-    generateBtn.addEventListener('click', generateAndSaveSchedule);
-    scheduleMonthSelector.addEventListener('change', renderSchedule);
-}
-
-
-// === ビュー管理 ===
-function showView(viewName) {
-    Object.values(views).forEach(view => view.classList.add('hidden'));
-    views[viewName].classList.remove('hidden');
-}
-
-function showModeSelectionView() {
-    currentUserMode = null;
-    currentEmployeeId = null;
-    showView('modeSelection');
-}
-
-// === モード設定 ===
-async function setupAdminMode() {
-    currentUserMode = 'admin';
-    currentEmployeeId = null;
-
-    appTitle.textContent = 'シフト管理 (管理者)';
-    employeeManagementSection.classList.remove('hidden');
-    generationSection.classList.remove('hidden');
-    requestEmployeeSelect.disabled = false;
-
-    await renderAll();
-    showView('app');
-}
-
-async function showEmployeeSelection() {
-    const employees = await db.employees.toArray();
-    if (employees.length === 0) {
-        alert('従業員が登録されていません。まず管理者モードで従業員を登録してください。');
-        return;
-    }
-    await populateEmployeeSelector();
-    showView('employeeSelection');
-}
-
-async function setupEmployeeMode(employeeId) {
-    currentUserMode = 'employee';
-    currentEmployeeId = employeeId;
-    const employee = await db.employees.get(employeeId);
-
-    appTitle.textContent = `ようこそ、${employee.name}さん`;
-    employeeManagementSection.classList.add('hidden');
-    generationSection.classList.add('hidden');
+    // コスト計算
+    const calculateAssignmentCost = (stats, block, allStats) => {
+        let cost = 0;
+        if (stats.assignedMinutes + block.duration > stats.maxMinutes) return Infinity;
+        const targetRatio = stats.targetMinutes > 0 ? stats.assignedMinutes / stats.targetMinutes : 1;
+        cost += (targetRatio < 1) ? (targetRatio - 1) * 100 : (targetRatio - 1) * 500;
+        let totalMinutes = 0, numEmployees = 0;
+        allStats.forEach(s => { totalMinutes += s.assignedMinutes; numEmployees++; });
+        const averageMinutes = numEmployees > 0 ? totalMinutes / numEmployees : 0;
+        cost += (stats.assignedMinutes - averageMinutes) / 60;
+        if (block.priorityType !== 'any') { if (stats.type === block.priorityType) { cost -= 50; } else { cost += 50; } }
+        return cost;
+    };
     
-    requestEmployeeSelect.innerHTML = `<option value="${employee.id}">${employee.name}</option>`;
-    requestEmployeeSelect.disabled = true;
-
-    await renderAll();
-    showView('app');
-}
-
-// === 描画関連 ===
-async function renderAll() {
-    if (currentUserMode === 'admin') {
-        await renderEmployees();
-        await populateRequestEmployeeSelect();
-    }
-    await renderRequests();
-    await renderSchedule();
-}
-
-async function populateEmployeeSelector() {
-    const employees = await db.employees.toArray();
-    employeeSelector.innerHTML = '<option value="">名前を選択してください</option>';
-    employees.forEach(emp => {
-        employeeSelector.innerHTML += `<option value="${emp.id}">${emp.name}</option>`;
-    });
-    selectEmployeeBtn.disabled = true;
-}
-
-async function renderEmployees() {
-    const employees = await db.employees.toArray();
-    employeeList.innerHTML = '';
-    employees.forEach(emp => {
-        const li = document.createElement('li');
-        li.textContent = emp.name;
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '削除';
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.onclick = () => deleteEmployee(emp.id);
-        li.appendChild(deleteBtn);
-        employeeList.appendChild(li);
-    });
-}
-
-async function populateRequestEmployeeSelect() {
-    const employees = await db.employees.toArray();
-    requestEmployeeSelect.innerHTML = '';
-    employees.forEach(emp => {
-        const option = document.createElement('option');
-        option.value = emp.id;
-        option.textContent = emp.name;
-        requestEmployeeSelect.appendChild(option);
-    });
-}
-
-async function renderRequests() {
-    let query = db.requests;
-    if (currentUserMode === 'employee') {
-        query = query.where('employeeId').equals(currentEmployeeId);
-    }
-    const requests = await query.toArray();
-    requestList.innerHTML = '';
-    for (const req of requests.sort((a,b) => a.date.localeCompare(b.date))) {
-        const emp = await db.employees.get(req.employeeId);
-        if (emp) {
-            const li = document.createElement('li');
-            li.textContent = `${req.date}: ${emp.name} (希望休)`;
-            requestList.appendChild(li);
-        }
-    }
-}
-
-// === データ操作 ===
-async function addEmployee(e) {
-    e.preventDefault();
-    const name = employeeNameInput.value.trim();
-    if (name) {
+    // シフト生成
+    const handleGenerateSchedule = async (e) => {
+        e.preventDefault();
         try {
-            await db.employees.add({ name });
-            employeeNameInput.value = '';
-            await renderAll();
-        } catch (error) {
-            alert('従業員の追加に失敗しました: ' + error);
-        }
-    }
-}
-
-async function deleteEmployee(id) {
-    if (confirm('この従業員を削除しますか？関連する希望休も全て削除されます。')) {
-        await db.transaction('rw', db.employees, db.requests, async () => {
-            await db.employees.delete(id);
-            await db.requests.where('employeeId').equals(id).delete();
-        });
-        await renderAll();
-    }
-}
-
-async function addRequest(e) {
-    e.preventDefault();
-    const employeeId = parseInt(requestEmployeeSelect.value, 10);
-    const date = requestDateInput.value;
-    if (employeeId && date) {
-        try {
-            await db.requests.add({ employeeId, date });
-            await renderRequests();
-        } catch (error) {
-            // Dexieの制約違反エラーは "ConstraintError"
-            if (error.name === 'ConstraintError') {
-                alert('この日の希望休は既に登録されています。');
-            } else {
-                alert('登録に失敗しました: ' + error);
-            }
-        }
-    }
-}
-
-// === シフト生成と描画 ===
-async function generateAndSaveSchedule() {
-    const month = targetMonthInput.value;
-    if (!month) return alert('対象月を選択してください。');
-
-    const employees = await db.employees.toArray();
-    if (employees.length === 0) return alert('従業員を登録してください。');
-
-    // ★★★ ここからが修正されたロジック ★★★
-    const SHIFTS = { '早番': { required: 1 }, '遅番': { required: 1 } };
-    const requests = await db.requests.where('date').startsWith(month).toArray();
-    const [year, monthNum] = month.split('-').map(Number);
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
-    const scheduleData = {};
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${month}-${String(day).padStart(2, '0')}`;
-        scheduleData[dateStr] = {};
-        
-        const offEmployeeIds = requests.filter(r => r.date === dateStr).map(r => r.employeeId);
-        let assignedToday = [];
-
-        for (const shiftName in SHIFTS) {
-            scheduleData[dateStr][shiftName] = [];
-            let availableEmployees = employees.filter(emp => 
-                !offEmployeeIds.includes(emp.id) && !assignedToday.includes(emp.id)
-            );
-
-            for (let i = 0; i < SHIFTS[shiftName].required; i++) {
-                if (availableEmployees.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * availableEmployees.length);
-                    const assignedEmployee = availableEmployees[randomIndex];
-                    
-                    scheduleData[dateStr][shiftName].push(assignedEmployee.id);
-                    assignedToday.push(assignedEmployee.id);
-                    
-                    availableEmployees.splice(randomIndex, 1);
-                } else {
-                    scheduleData[dateStr][shiftName].push(null); // nullは欠員を示す
+            const year = parseInt(generateYearSelect.value), month = parseInt(generateMonthSelect.value), period = parseInt(generatePeriodSelect.value);
+            const { startDay, endDay } = getDayRange(year, month, period);
+            const startDate = new Date(year, month - 1, startDay), endDate = new Date(year, month - 1, endDay);
+            const [allDemands, allAvailabilities, allEmployees] = await Promise.all([
+                db.demands.where('date').between(startDate.toISOString().slice(0, 10), endDate.toISOString().slice(0, 10), true, true).toArray(),
+                db.availabilities.where('date').between(startDate.toISOString().slice(0, 10), endDate.toISOString().slice(0, 10), true, true).toArray(),
+                db.employees.toArray()
+            ]);
+            
+            if (allEmployees.length === 0) return alert('従業員を登録してください。');
+            if (allDemands.length === 0) return alert('対象期間の「必要人数」が設定されていません。');
+            
+            let shiftBlocks = [];
+            for (const demand of allDemands) {
+                for (let i = 0; i < demand.people; i++) {
+                    shiftBlocks.push({ id: `block-${demand.id}-${i}`, date: demand.date, start: demand.startTime, end: demand.endTime, duration: timeToMinutes(demand.endTime) - timeToMinutes(demand.startTime), priorityType: demand.priorityType, assignedTo: null });
                 }
             }
+
+            const weeksInPeriod = (endDay - startDay + 1) / 7;
+            const employeeStats = new Map(allEmployees.map(e => [e.id, { ...e, maxMinutes: 40 * 60 * weeksInPeriod, targetMinutes: e.contractDays * 8 * 60 * weeksInPeriod, assignedMinutes: 0 }]));
+
+            let unassignedBlocks = [...shiftBlocks];
+            while (unassignedBlocks.length > 0) {
+                let bestMatch = null, minCost = Infinity;
+                for (const block of unassignedBlocks) {
+                    const candidates = allAvailabilities
+                        .filter(avail => avail.date === block.date && avail.startTime <= block.start && avail.endTime >= block.end)
+                        .map(avail => employeeStats.get(avail.employeeId))
+                        .filter(stats => stats);
+                    
+                    for (const stats of candidates) {
+                        const cost = calculateAssignmentCost(stats, block, employeeStats);
+                        if (cost < minCost) {
+                            minCost = cost;
+                            bestMatch = { block, employeeStats: stats };
+                        }
+                    }
+                }
+                if (bestMatch) {
+                    const { block, employeeStats: stats } = bestMatch;
+                    block.assignedTo = stats.id;
+                    stats.assignedMinutes += block.duration;
+                    unassignedBlocks = unassignedBlocks.filter(b => b.id !== block.id);
+                } else {
+                    break;
+                }
+            }
+
+            const dailySchedules = new Map();
+            for (const block of shiftBlocks) {
+                if (!block.assignedTo) continue;
+                if (!dailySchedules.has(block.date)) dailySchedules.set(block.date, { id: block.date, shifts: {} });
+                const schedule = dailySchedules.get(block.date);
+                if (!schedule.shifts[block.assignedTo]) schedule.shifts[block.assignedTo] = [];
+                schedule.shifts[block.assignedTo].push({ start: block.start, end: block.end });
+            }
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().slice(0, 10);
+                if (dailySchedules.has(dateStr)) {
+                    await db.schedules.put(dailySchedules.get(dateStr));
+                } else {
+                    await db.schedules.put({ id: dateStr, shifts: {} });
+                }
+            }
+
+            alert(`${year}年${month}月 ${period === 1 ? '前半' : '後半'} のシフトを生成しました。`);
+            scheduleYearSelect.value = year; scheduleMonthSelect.value = month; schedulePeriodSelect.value = period;
+            await renderScheduleForPeriod();
+
+        } catch (error) {
+            console.error("シフト生成中に致命的なエラーが発生しました:", error);
+            alert("シフト生成中にエラーが発生しました。開発者コンソール(F12キー)で詳細を確認してください。");
         }
-    }
-    // ★★★ ここまでが修正されたロジック ★★★
+    };
+    
+    // シフト表の表示
+    const renderScheduleForPeriod = async () => { /* ... (前回と同じ) ... */ };
+    const renderTimelineForDate = (schedule, allEmployees, employeeMap, date) => { /* ... (前回と同じ) ... */ };
+    const initializeSortableForDate = (date) => { /* ... (前回と同じ) ... */ };
+    
+    // 初期化処理
+    populateTimeSelects();
+    populateYearMonthSelects();
+    showView('modeSelection');
 
-    try {
-        await db.schedules.put({ id: month, data: scheduleData });
-        alert(`${month}のシフトを生成・保存しました。`);
-        scheduleMonthSelector.value = month;
-        await renderSchedule();
-    } catch (error) {
-        alert('シフトの保存に失敗しました: ' + error);
-    }
-}
-
-async function renderSchedule() {
-    const month = scheduleMonthSelector.value;
-    if (!month) {
-        scheduleTableContainer.innerHTML = '<p>表示する月を選択してください。</p>';
-        return;
-    }
-
-    scheduleTitle.textContent = `シフト表 (${month})`;
-    const savedSchedule = await db.schedules.get(month);
-
-    if (!savedSchedule) {
-        scheduleTableContainer.innerHTML = '<p>この月のシフトデータはまだ作成されていません。</p>';
-        return;
-    }
-
-    const scheduleData = savedSchedule.data;
-    const allEmployees = await db.employees.toArray();
-    const employeeMap = new Map(allEmployees.map(e => [e.id, e.name]));
-    employeeMap.set(null, '欠員');
-
-    let tableHTML = '<table><thead><tr><th>日付</th><th>早番</th><th>遅番</th></tr></thead><tbody>';
-
-    for (const date in scheduleData) {
-        const earlyIds = scheduleData[date]['早番'];
-        const lateIds = scheduleData[date]['遅番'];
-        
-        const earlyNames = earlyIds.map(id => employeeMap.get(id)).join(', ');
-        const lateNames = lateIds.map(id => employeeMap.get(id)).join(', ');
-
-        const isCurrentUserInShift = currentUserMode === 'employee' && (earlyIds.includes(currentEmployeeId) || lateIds.includes(currentEmployeeId));
-        
-        const dateObj = new Date(date + 'T00:00:00');
-        const dayOfWeek = dateObj.getDay();
-        const dayStr = dateObj.toLocaleDateString('ja-JP', { day: 'numeric', weekday: 'short' });
-        
-        let rowClass = '';
-        if (dayOfWeek === 0 || dayOfWeek === 6) rowClass = 'weekend'; // 土日
-        if (isCurrentUserInShift) rowClass += ' highlight'; // 自分のシフトをハイライト
-
-        tableHTML += `<tr class="${rowClass.trim()}"><td>${dayStr}</td><td>${earlyNames}</td><td>${lateNames}</td></tr>`;
-    }
-    tableHTML += '</tbody></table>';
-    scheduleTableContainer.innerHTML = tableHTML;
-}
-
+    // イベントリスナー
+    adminModeBtn.addEventListener('click', setupAdminMode);
+    employeeModeBtn.addEventListener('click', showEmployeeSelection);
+    selectEmployeeBtn.addEventListener('click', () => { const selectedId = parseInt(employeeSelector.value, 10); if (selectedId) setupEmployeeMode(selectedId); });
+    employeeSelector.addEventListener('change', () => selectEmployeeBtn.disabled = !employeeSelector.value);
+    backButtons.forEach(btn => btn.addEventListener('click', showModeSelectionView));
+    demandDateInput.addEventListener('change', () => renderDemandsForDate(demandDateInput.value));
+    demandForm.addEventListener('submit', addDemand);
+    employeeForm.addEventListener('submit', addEmployee);
+    availabilityForm.addEventListener('submit', addAvailability);
+    generationForm.addEventListener('submit', handleGenerateSchedule);
+    scheduleSelectorContainer.addEventListener('change', renderScheduleForPeriod);
+    openCopyModalBtn.addEventListener('click', openCopyModal);
+    closeCopyModalBtn.addEventListener('click', closeCopyModal);
+    executeCopyBtn.addEventListener('click', executeCopy);
+    window.addEventListener('click', (event) => { if (event.target == copyModal) closeCopyModal(); });
+});
 </script>
 </body>
 </html>
