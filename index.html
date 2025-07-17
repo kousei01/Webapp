@@ -67,8 +67,14 @@
 <script>
 "use strict";
 
+// Service Workerのパスを絶対パスに修正
 document.addEventListener('DOMContentLoaded', () => {
-    if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW registration failed:', err)); }); }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            // ルート相対パスで登録（GitHub Pagesでもローカルでも動作）
+            navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW registration failed:', err));
+        });
+    }
 
     const db = new Dexie('ShiftAppDB');
     db.version(9).stores({ demands: '++id, date', availabilities: '++id, &[employeeId+date], date', employees: '++id, name', schedules: 'id, date' });
